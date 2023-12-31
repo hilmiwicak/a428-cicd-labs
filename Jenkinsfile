@@ -13,47 +13,38 @@ node {
         input message: 'Lanjutkan ke tahap Deploy?'
     }
     stage('Deploy') {
-        try {
-            sshPublisher(
-                publishers : [
-                    sshPublisherDesc(
-                        configName: "ec2-react-app",
-                        verbose: true,
-                        transfers: [
-                            sshTransfer(
-                                sourceFiles: 'build/**',
-                                removePrefix: 'build/',
-                            ),
-                            sshTransfer(execCommand: 'docker run -d -p 3000:3000 -v $(pwd):/app --name react-app node:16-buster-slim sh -c "cd /app/react-app && npm install -g serve && serve -l 3000"')
-                        ]
-                    )
-                ],
-                continueOnError: false, 
-                failOnError: true,
-            )
-        } catch (err) {
-            currentBuild.result = 'FAILED'
-            throw err
-        } finally {
-            def currentResult = currentBuild.result ?: 'SUCCESS'
-            if (currentResult == 'SUCCESS') {
-                sleep(time: 1, unit: 'MINUTES')
-                // sshPublisher(
-                //     publishers : [
-                //         sshPublisherDesc(
-                //             configName: "ec2-react-app",
-                //             verbose: true,
-                //             transfers: [
-                //                 sshTransfer(execCommand: 'docker container stop react-app && docker container rm react-app && rm -rf ./*')
-                //             ]
-                //         )
-                //     ],
-                //     continueOnError: false, 
-                //     failOnError: true,
-                // )
-            } else {
-                sh 'echo "Build failed, skipping deploy"'
+        docker.image('node:16-buster-slim').inside('-p 3000:3000') {
+            sh './jenkins/scripts/deliver.sh'
+            sleep(time: 1, unit: 'MINUTES')
+        }
+    }
+}
+/*
+pipeline {
+    agent {
+        docker {
+            image 'node:16-buster-slim' 
+            args '-p 3000:3000' 
+        }
+    }
+    stages {
+        stage('Build') { 
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh './jenkins/scripts/test.sh'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh './jenkins/scripts/deliver.sh'
+                input message: 'Sudah selesai menggunakan React App? (Klik "Proceed" untuk mengakhiri)'
+                sh './jenkins/scripts/kill.sh'
             }
         }
     }
 }
+*/
